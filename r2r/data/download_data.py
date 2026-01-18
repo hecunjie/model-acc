@@ -14,17 +14,23 @@ def prepare_dataset():
     print(f"Original columns: {ds.column_names}")
 
     def transform(example, idx):
-        # 1. 提取 question
+        # 1. 提取 system, question 和 answer
+        system = ""
         question = ""
+        answer = ""
+        
         if 'conversations' in example:
             for msg in example['conversations']:
                 # 兼容不同的字段名
                 role = msg.get('role') or msg.get('from')
                 content = msg.get('content') or msg.get('value')
                 
-                if role == 'user':
+                if role == 'system':
+                    system = content
+                elif role == 'user':
                     question = content
-                    break
+                elif role == 'assistant' or role == 'gpt':
+                    answer = content
         
         # 如果没找到 user 提问，回退处理（根据实际数据情况）
         if not question:
@@ -36,7 +42,9 @@ def prepare_dataset():
 
         return {
             "id": str(example_id),
-            "question": question
+            "system": system,
+            "question": question,
+            "answer": answer
         }
 
     print("Mapping dataset to extract 'id' and 'question'...")
