@@ -293,8 +293,22 @@ def batch_generate(engine, tokenizer, prompts, max_new_tokens=8192, temperature=
     # Tokenize all prompts
     input_ids_list = [tokenizer.encode(prompt) for prompt in prompts]
 
+    # Calculate actual max_new_tokens for each request based on context length
+    # Default Qwen 32k context length
+    MODEL_CONTEXT_LENGTH = 32768
+    
+    # We will use the minimum of (MODEL_CONTEXT_LENGTH - input_length) and provided max_new_tokens
+    # But sglang might expect a unified sampling_params for the batch if passed directly.
+    # To conform to sglang API safely with single sampling_params, we must ensure max_new_tokens fits for ALL items in batch.
+    
+    max_input_len = max([len(ids) for ids in input_ids_list])
+    safe_max_new_tokens = min(max_new_tokens, MODEL_CONTEXT_LENGTH - max_input_len - 100) # Reserve 100 tokens buffer
+    
+    if safe_max_new_tokens < 100:
+        print(f"Warning: Input length {max_input_len} is too close to context limit {MODEL_CONTEXT_LENGTH}. Reducing generation tokens significantly.")
+
     # Set sampling parameters
-    sampling_params = {"max_new_tokens": max_new_tokens}
+    sampling_params = {"max_new_tokens": safe_max_new_tokens}
     if temperature >= 0.0:
         sampling_params["temperature"] = temperature
     if top_p < 1.0:
